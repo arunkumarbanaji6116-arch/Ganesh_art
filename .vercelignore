@@ -1,0 +1,11 @@
+# Ignore backend/local scripts on Vercel deployment
+server.js
+server.py
+ganesh_visualizer.py
+build_html.py
+create_qr_card.py
+START_MOBILE_SERVER.bat
+start_tunnel.bat
+*.py
+*.bat
+*.log
