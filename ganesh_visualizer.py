@@ -59,8 +59,13 @@ def analyze_image_and_targets(image_path, screen_w, screen_h):
         print(f"Error: Could not find {image_path}. Please ensure image.png is in the directory.")
         sys.exit()
         
-    new_w, new_h = screen_w, screen_h
-    offset_x, offset_y = 0, 0
+    orig_h, orig_w = img.shape[:2]
+    # Preserve aspect ratio and center on screen
+    scale = min(screen_w / orig_w, screen_h / orig_h)
+    new_w = int(orig_w * scale)
+    new_h = int(orig_h * scale)
+    offset_x = (screen_w - new_w) // 2
+    offset_y = (screen_h - new_h) // 2
     
     img_smooth = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
     gray = cv2.cvtColor(img_smooth, cv2.COLOR_BGR2GRAY)
@@ -74,9 +79,15 @@ def analyze_image_and_targets(image_path, screen_w, screen_h):
             if edges[y, x] > 0:
                 outline_targets.append({'x': x + offset_x, 'y': y + offset_y})
 
+    # Realistic flame locations mapped to deepams, wicks, and lamps in the image
     flame_ratios = [
-        (0.244, 0.548), (0.287, 0.525), (0.332, 0.548), 
-        (0.668, 0.548), (0.713, 0.525), (0.756, 0.548)  
+        # Left standing peacock deepam wicks
+        (0.205, 0.555), (0.231, 0.535), (0.252, 0.555),
+        # Right standing peacock deepam wicks
+        (0.748, 0.555), (0.772, 0.540), (0.795, 0.555),
+        # Floor oil lamps / diyas
+        (0.145, 0.870), (0.201, 0.890), (0.258, 0.810), 
+        (0.740, 0.835), (0.798, 0.890), (0.855, 0.880)
     ]
     flame_centers = []
     for rx, ry in flame_ratios:
@@ -96,23 +107,11 @@ def analyze_image_and_targets(image_path, screen_w, screen_h):
         for x in range(0, new_w, TILE_SIZE):
             reveal_targets.append({'x': x + offset_x, 'y': y + offset_y})
                 
-    # Sort targets based on 'y' ascending so the highest Y (bottom of image)
-    # is at the end of the list. `.pop()` will grab these bottom targets first.
+    # Sort targets ascending by y so highest Y (bottom) pops first
     outline_targets.sort(key=lambda t: t['y'])
     reveal_targets.sort(key=lambda t: t['y'])
     
     return outline_targets, reveal_targets, reveal_color_surface, flame_centers
-
-def load_and_scale_image(path, target_height):
-    try:
-        img = pygame.image.load(path).convert_alpha()
-        w, h = img.get_size()
-        scale = target_height / h
-        scaled_img = pygame.transform.scale(img, (int(w * scale), target_height))
-        scaled_img.set_colorkey((0, 0, 0)) 
-        return scaled_img
-    except:
-        return None
 
 def main():
     global WIDTH, HEIGHT
@@ -125,7 +124,7 @@ def main():
     HEIGHT = info.current_h - 130
     
     screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME)
-    pygame.display.set_caption("Ganesha Visualizer - Restored Masterpiece")
+    pygame.display.set_caption("Ganesha Visualizer - Sacred Masterpiece")
     clock = pygame.time.Clock()
 
     targets = analyze_image_and_targets(IMAGE_PATH, WIDTH, HEIGHT)
@@ -155,10 +154,22 @@ def main():
     bg_particles = []
     running = True
     phase = 1
+    
+    # Dynamic animation speed controls
+    speed_multiplier = 1.0
+    paused = False
+    show_controls = True
+    MAX_ACTIVE_PARTICLES = 6500
+
+    try:
+        font_ctrl = pygame.font.SysFont('Segoe UI', 11)
+        font_ctrl_bold = pygame.font.SysFont('Segoe UI', 11, bold=True)
+    except:
+        font_ctrl = pygame.font.SysFont('Arial', 11)
+        font_ctrl_bold = pygame.font.SysFont('Arial', 11, bold=True)
 
     while running:
         screen.fill((5, 2, 5))
-        
         current_time = pygame.time.get_ticks()
         
         for event in pygame.event.get():
@@ -167,6 +178,40 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
+                elif event.key in (pygame.K_UP, pygame.K_RIGHT, pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
+                    speed_multiplier = min(10.0, round(speed_multiplier + 0.5, 1))
+                elif event.key in (pygame.K_DOWN, pygame.K_LEFT, pygame.K_MINUS, pygame.K_KP_MINUS):
+                    speed_multiplier = max(0.5, round(speed_multiplier - 0.5, 1))
+                elif event.key == pygame.K_SPACE:
+                    paused = not paused
+                elif event.key == pygame.K_h:
+                    show_controls = not show_controls
+                elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5):
+                    speed_multiplier = float(event.key - pygame.K_0)
+                elif event.key == pygame.K_f:
+                    # Fast forward / Skip phase
+                    if phase == 1:
+                        for t in outline_targets:
+                            rect = spr_outline_gold.get_rect(center=(t['x'], t['y']))
+                            outline_surface.blit(spr_outline_gold, rect)
+                        outline_targets.clear()
+                        active_particles.clear()
+                        phase = 2
+                    elif phase == 2:
+                        fill_surface.blit(reveal_color_surface, (0, 0))
+                        reveal_targets.clear()
+                        active_particles.clear()
+                        phase = 3
+                elif event.key == pygame.K_r:
+                    # Restart animation
+                    targets = analyze_image_and_targets(IMAGE_PATH, WIDTH, HEIGHT)
+                    outline_targets, reveal_targets, reveal_color_surface, flame_centers = targets
+                    outline_surface.fill((0, 0, 0, 0))
+                    fill_surface.fill((0, 0, 0, 0))
+                    active_particles.clear()
+                    bg_particles.clear()
+                    phase = 1
+                    paused = False
 
         if phase == 1:
             hue = (current_time // 30) % 360 
@@ -181,37 +226,17 @@ def main():
             
         screen.blit(fill_surface, (0, 0))
 
-        surviving_particles = []
-        for p in active_particles:
-            if p['state'] == 'falling':
-                p['y'] += p['speed'] * 2  # Fall to floor quickly
-                if p['y'] >= HEIGHT:
-                    p['y'] = HEIGHT
-                    p['state'] = 'rising'
-                
-                # Render during initial fall
-                if p['type'] == 'tile':
-                    rect = (p['target_x'], p['target_y'], TILE_SIZE, TILE_SIZE)
-                    screen.blit(reveal_color_surface, (p['x'], int(p['y'])), rect)
-                elif p['type'] == 'outline':
-                    sprite = p['sprite']
-                    sprite_rect = sprite.get_rect(center=(p['target_x'], int(p['y'])))
-                    screen.blit(sprite, sprite_rect)
-                surviving_particles.append(p)
-                
-            elif p['state'] == 'rising':
-                p['y'] -= p['speed']  # Move up to target position
-                if p['y'] <= p['target_y']:
-                    # Reached target
-                    if p['type'] == 'tile':
-                        rect = (p['target_x'], p['target_y'], TILE_SIZE, TILE_SIZE)
-                        fill_surface.blit(reveal_color_surface, (p['target_x'], p['target_y']), rect)
-                    elif p['type'] == 'outline':
-                        sprite = p['sprite']
-                        target_rect = sprite.get_rect(center=(p['target_x'], p['target_y']))
-                        outline_surface.blit(sprite, target_rect)
-                else:
-                    # Still rising
+        # Particle simulation update
+        if not paused:
+            surviving_particles = []
+            for p in active_particles:
+                step_speed = p['speed']
+                if p['state'] == 'falling':
+                    p['y'] += step_speed * 2  # Fall swiftly
+                    if p['y'] >= HEIGHT:
+                        p['y'] = HEIGHT
+                        p['state'] = 'rising'
+                    
                     if p['type'] == 'tile':
                         rect = (p['target_x'], p['target_y'], TILE_SIZE, TILE_SIZE)
                         screen.blit(reveal_color_surface, (p['x'], int(p['y'])), rect)
@@ -220,42 +245,71 @@ def main():
                         sprite_rect = sprite.get_rect(center=(p['target_x'], int(p['y'])))
                         screen.blit(sprite, sprite_rect)
                     surviving_particles.append(p)
-                
-        active_particles = surviving_particles
-                
-        if phase == 1:
-            for _ in range(800):
-                if outline_targets:
-                    t = outline_targets.pop()
-                    active_particles.append({
-                        'type': 'outline',
-                        'sprite': spr_outline_gold,
-                        'x': t['x'],
-                        'y': random.randint(-150, -10),
-                        'target_x': t['x'],
-                        'target_y': t['y'],
-                        'speed': random.uniform(4, 9),
-                        'state': 'falling'
-                    })
-            if not outline_targets and len(active_particles) == 0:
-                phase = 2
-                
-        elif phase == 2:
-            for _ in range(600):
-                if reveal_targets:
-                    t = reveal_targets.pop()
-                    active_particles.append({
-                        'type': 'tile',
-                        'x': t['x'],
-                        'y': random.randint(-250, -10),
-                        'target_x': t['x'],
-                        'target_y': t['y'],
-                        'speed': random.uniform(4, 10),
-                        'state': 'falling'
-                    })
-            if not reveal_targets and len(active_particles) == 0:
-                phase = 3 
+                    
+                elif p['state'] == 'rising':
+                    p['y'] -= step_speed  # Rise to designated place
+                    if p['y'] <= p['target_y']:
+                        # Reached target destination
+                        if p['type'] == 'tile':
+                            rect = (p['target_x'], p['target_y'], TILE_SIZE, TILE_SIZE)
+                            fill_surface.blit(reveal_color_surface, (p['target_x'], p['target_y']), rect)
+                        elif p['type'] == 'outline':
+                            sprite = p['sprite']
+                            target_rect = sprite.get_rect(center=(p['target_x'], p['target_y']))
+                            outline_surface.blit(sprite, target_rect)
+                    else:
+                        # Continue rising
+                        if p['type'] == 'tile':
+                            rect = (p['target_x'], p['target_y'], TILE_SIZE, TILE_SIZE)
+                            screen.blit(reveal_color_surface, (p['x'], int(p['y'])), rect)
+                        elif p['type'] == 'outline':
+                            sprite = p['sprite']
+                            sprite_rect = sprite.get_rect(center=(p['target_x'], int(p['y'])))
+                            screen.blit(sprite, sprite_rect)
+                        surviving_particles.append(p)
+                    
+            active_particles = surviving_particles
 
+        # Particle spawning (calm, graceful pacing at 1.0x)
+        if not paused:
+            if phase == 1:
+                can_spawn = max(0, MAX_ACTIVE_PARTICLES - len(active_particles))
+                spawn_count = min(can_spawn, int(420 * speed_multiplier))
+                for _ in range(spawn_count):
+                    if outline_targets:
+                        t = outline_targets.pop()
+                        active_particles.append({
+                            'type': 'outline',
+                            'sprite': spr_outline_gold,
+                            'x': t['x'],
+                            'y': random.randint(-120, -10),
+                            'target_x': t['x'],
+                            'target_y': t['y'],
+                            'speed': random.uniform(3.5, 6.5) * speed_multiplier,
+                            'state': 'falling'
+                        })
+                if not outline_targets and len(active_particles) == 0:
+                    phase = 2
+                    
+            elif phase == 2:
+                can_spawn = max(0, MAX_ACTIVE_PARTICLES - len(active_particles))
+                spawn_count = min(can_spawn, int(320 * speed_multiplier))
+                for _ in range(spawn_count):
+                    if reveal_targets:
+                        t = reveal_targets.pop()
+                        active_particles.append({
+                            'type': 'tile',
+                            'x': t['x'],
+                            'y': random.randint(-160, -10),
+                            'target_x': t['x'],
+                            'target_y': t['y'],
+                            'speed': random.uniform(3.8, 7.0) * speed_multiplier,
+                            'state': 'falling'
+                        })
+                if not reveal_targets and len(active_particles) == 0:
+                    phase = 3 
+
+        # Phase 3: Sacred Diya / Flame pulse
         if phase >= 3:
             for i, center in enumerate(flame_centers):
                 pulse = math.sin(current_time * 0.006 + i) 
@@ -275,16 +329,17 @@ def main():
                 rect = glow_surf.get_rect(center=(shake_x, shake_y))
                 screen.blit(glow_surf, rect, special_flags=pygame.BLEND_RGBA_ADD)
 
-        if phase >= 2:
-            if random.random() < 0.08: 
+        # Flower petals and divine glitter
+        if phase >= 2 and not paused:
+            if random.random() < 0.08 * min(2.0, speed_multiplier): 
                 is_flower = random.random() < 0.50  
                 if is_flower:
                     sprite = random.choice(bg_flower_sprites)
-                    speed_y = random.uniform(1.2, 2.5)
+                    speed_y = random.uniform(1.2, 2.5) * (1.0 + (speed_multiplier - 1.0) * 0.3)
                     wobble_width = random.uniform(0.8, 1.8)
                 else:
                     sprite = random.choice(bg_glitter_sprites)
-                    speed_y = random.uniform(1.0, 3.5) 
+                    speed_y = random.uniform(1.0, 3.5) * (1.0 + (speed_multiplier - 1.0) * 0.3)
                     wobble_width = random.uniform(0.1, 0.4)
 
                 bg_particles.append({
@@ -299,13 +354,52 @@ def main():
 
         surviving_bg = []
         for p in bg_particles:
-            p['y'] += p['speed_y']
+            if not paused:
+                p['y'] += p['speed_y']
             draw_x = p['x'] + math.sin(current_time * p['wobble_speed'] + p['wobble_offset']) * p['wobble_width'] * 20
             
             if p['y'] < HEIGHT:
                 screen.blit(p['sprite'], (int(draw_x), int(p['y'])))
                 surviving_bg.append(p)
-        bg_particles = surviving_bg
+        # Vertical Sidebar View for Controls (docked along the right edge)
+        if show_controls:
+            bar_w, bar_h = 138, 172
+            bar_surf = pygame.Surface((bar_w, bar_h), pygame.SRCALPHA)
+            pygame.draw.rect(bar_surf, (14, 9, 22, 195), (0, 0, bar_w, bar_h), border_radius=10)
+            pygame.draw.rect(bar_surf, (218, 165, 32, 90), (0, 0, bar_w, bar_h), width=1, border_radius=10)
+
+            # Header divider
+            pygame.draw.line(bar_surf, (218, 165, 32, 60), (10, 26), (bar_w - 10, 26), 1)
+
+            t_head = font_ctrl_bold.render("CONTROLS", True, (212, 175, 55))
+            status_color = (255, 120, 120) if paused else (255, 230, 140)
+            status_lbl = "⏸ PAUSED" if paused else f"Speed: {speed_multiplier:.1f}x"
+            t_speed = font_ctrl_bold.render(status_lbl, True, status_color)
+
+            t_spd_adj = font_ctrl.render("▲/▼ : Speed", True, (210, 210, 220))
+            t_pause = font_ctrl.render("Space : Pause", True, (210, 210, 220))
+            t_skip = font_ctrl.render("F : Skip Phase", True, (210, 210, 220))
+            t_reset = font_ctrl.render("R : Restart", True, (210, 210, 220))
+            t_hide = font_ctrl.render("H : Hide Dock", True, (160, 160, 170))
+
+            bar_surf.blit(t_head, ((bar_w - t_head.get_width()) // 2, 7))
+            bar_surf.blit(t_speed, ((bar_w - t_speed.get_width()) // 2, 33))
+            bar_surf.blit(t_spd_adj, (12, 58))
+            bar_surf.blit(t_pause, (12, 80))
+            bar_surf.blit(t_skip, (12, 102))
+            bar_surf.blit(t_reset, (12, 124))
+            bar_surf.blit(t_hide, (12, 146))
+
+            screen.blit(bar_surf, (WIDTH - bar_w - 12, (HEIGHT - bar_h) // 2))
+
+        # Clearly visible "Arun" badge on bottom-left
+        badge_w, badge_h = 110, 32
+        badge_surf = pygame.Surface((badge_w, badge_h), pygame.SRCALPHA)
+        pygame.draw.rect(badge_surf, (14, 9, 22, 210), (0, 0, badge_w, badge_h), border_radius=16)
+        pygame.draw.rect(badge_surf, (255, 215, 0, 160), (0, 0, badge_w, badge_h), width=1, border_radius=16)
+        t_author = font_ctrl_bold.render("✨ Arun", True, (255, 240, 160))
+        badge_surf.blit(t_author, ((badge_w - t_author.get_width()) // 2, 7))
+        screen.blit(badge_surf, (16, HEIGHT - 44))
 
         pygame.display.flip()
         clock.tick(FPS)

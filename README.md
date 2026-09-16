@@ -1,38 +1,60 @@
-# Ganesha Visualizer
+# 🕉️ Lord Ganesha Art Visualizer
 
-A Python script that creates a dynamic animated particle reveal of an image.
+An animated sacred particle reveal visualizer of Lord Ganesha, featuring glowing diya flames, falling flower petals, and divine particle cascades. Built by **Arun**.
 
-## Prerequisites
+Available in two versions:
+1. **HTML5 Responsive Canvas Web App** (`index.html`) — Works seamlessly on mobile phones and desktop browsers with interactive touch controls, portrait-to-landscape rotation guidance, and 1.0X default serene pacing.
+2. **Desktop Python Visualizer** (`ganesh_visualizer.py`) — Real-time Pygame-based particle physics engine.
 
-You need Python installed on your system along with three external libraries:
+---
 
-* `pygame`
+## ✨ Features
 
-* `opencv-python` (imported as `cv2`)
+- **Particle Reveal Cascade:** Thousands of particles gently fall and form the sacred image of Lord Ganesha.
+- **Glowing Sacred Diya Lamps:** Radiant animated flame glows with flickering sacred aura.
+- **Divine Flower Petals & Stardust:** Gentle petals and golden stars floating down the screen.
+- **Mobile Responsive Design:** Auto-scales to any phone screen with smooth full-screen landscape viewing.
+- **Interactive Sidebar Dock:** Speed adjustment (0.25x – 5.0x, default 1.0x), pause/play, skip phase, restart, and fullscreen toggle.
+- **Tap Controls:** Tap anywhere on screen to pause or resume animation.
 
+---
 
-* `numpy`
+## 🚀 How to Run
 
+### 1. Web Version (Mobile & Desktop Browser)
+Simply open `index.html` in any modern web browser, or serve it locally:
 
-You can install all dependencies via pip:
+```bash
+# Using Node.js
+node server.js
 
+# Or using Python
+python server.py
+```
+Then visit `http://localhost:8080` in your browser.
+
+### 2. Desktop Python Version
+#### Prerequisites:
 ```bash
 pip install pygame opencv-python numpy
-
 ```
 
-## How to Run
-
-1. Place the image you want to visualize in the same folder as the script and name it `image.png`.
-
-
-2. Open your terminal or command prompt.
-3. Navigate to the folder containing the project files.
-4. Execute the script by running:
-
+#### Run:
 ```bash
 python ganesh_visualizer.py
-
 ```
 
-5. Press the `ESC` key or click the window's close button to exit the animation at any time.
+### Keyboard Shortcuts (Desktop):
+- `Space`: Pause / Resume
+- `+` / `Up Arrow`: Speed Up
+- `-` / `Down Arrow`: Slow Down
+- `F`: Skip Phase
+- `R`: Restart Animation
+- `H`: Toggle Controls
+- `ESC`: Exit
+
+---
+
+## 🎨 Author
+Created by **Arun**  
+*Lord Ganesha Particle Visualizer*
