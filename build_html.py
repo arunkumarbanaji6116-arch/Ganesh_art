@@ -173,21 +173,58 @@ html_template = f'''<!DOCTYPE html>
       max-width: 290px;
       margin-bottom: 24px;
     }}
+    .rotate-btn-group {{
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+      max-width: 320px;
+    }}
+    .btn-rotate-fullscreen {{
+      width: 100%;
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.35), rgba(255, 140, 0, 0.45));
+      border: 1.5px solid rgba(255, 215, 0, 0.85);
+      color: #FFFDF0;
+      padding: 12px 20px;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.35);
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }}
+    .btn-rotate-fullscreen:active {{
+      transform: scale(0.96);
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.55), rgba(255, 140, 0, 0.65));
+      box-shadow: 0 0 28px rgba(255, 215, 0, 0.6);
+    }}
     .btn-continue-portrait {{
-      background: rgba(255, 215, 0, 0.15);
-      border: 1px solid rgba(255, 215, 0, 0.4);
-      color: #FFE680;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      color: #DDD0E8;
       padding: 9px 20px;
       border-radius: 20px;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       transition: all 0.2s ease;
+      touch-action: manipulation;
     }}
     .btn-continue-portrait:active {{
       transform: scale(0.96);
-      background: rgba(255, 215, 0, 0.25);
+      background: rgba(255, 215, 0, 0.2);
+      color: #FFE680;
     }}
 
     /* =========================================
@@ -400,8 +437,11 @@ html_template = f'''<!DOCTYPE html>
     </div>
     <div class="rotate-title">Lord Ganesha Visualizer</div>
     <div style="font-size:13px; color:#FFD700; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">✨ Arun</div>
-    <div class="rotate-desc">For the most breathtaking wide view of Lord Ganesha, please turn your device to landscape mode.</div>
-    <button class="btn-continue-portrait" id="btnContinuePortrait">Continue in Portrait</button>
+    <div class="rotate-desc">For the most breathtaking wide view of Lord Ganesha, rotate your device or tap below to auto-switch.</div>
+    <div class="rotate-btn-group">
+      <button class="btn-rotate-fullscreen" id="btnRotateLandscape">⛶ Auto-Rotate to Fullscreen Landscape</button>
+      <button class="btn-continue-portrait" id="btnContinuePortrait">Continue in Portrait</button>
+    </div>
   </div>
 
   <!-- SIDEBAR VIEW CONTROLS (VERTICAL DOCK) -->
@@ -492,9 +532,122 @@ html_template = f'''<!DOCTYPE html>
       }}
     }}
 
-    // Orientation checking & modal handling
+    // =========================================
+    // FULLSCREEN & AUTO-ROTATE CONTROLS
+    // =========================================
     const orientationOverlay = document.getElementById('orientationOverlay');
     let userDismissedPortrait = false;
+    let autoFullscreenArmed = false;
+
+    function isFullscreenActive() {{
+      return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+    }}
+
+    function lockLandscape() {{
+      try {{
+        if (screen.orientation && screen.orientation.lock) {{
+          screen.orientation.lock('landscape').catch(() => {{}});
+        }} else if (screen.lockOrientation) {{
+          screen.lockOrientation('landscape');
+        }} else if (screen.webkitLockOrientation) {{
+          screen.webkitLockOrientation('landscape');
+        }} else if (screen.mozLockOrientation) {{
+          screen.mozLockOrientation('landscape');
+        }} else if (screen.msLockOrientation) {{
+          screen.msLockOrientation('landscape');
+        }}
+      }} catch (err) {{}}
+    }}
+
+    function unlockOrientation() {{
+      try {{
+        if (screen.orientation && screen.orientation.unlock) {{
+          screen.orientation.unlock();
+        }} else if (screen.unlockOrientation) {{
+          screen.unlockOrientation();
+        }}
+      }} catch (err) {{}}
+    }}
+
+    function enterFullscreenLandscape() {{
+      const el = document.documentElement;
+      const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (rfs && !isFullscreenActive()) {{
+        const promise = rfs.call(el);
+        if (promise && promise.then) {{
+          promise.then(() => {{
+            lockLandscape();
+            updateFullscreenButton();
+          }}).catch(() => {{
+            lockLandscape();
+          }});
+        }} else {{
+          lockLandscape();
+          updateFullscreenButton();
+        }}
+      }} else {{
+        lockLandscape();
+      }}
+    }}
+
+    function exitFullscreen() {{
+      const efs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      if (efs && isFullscreenActive()) {{
+        efs.call(document);
+      }}
+      unlockOrientation();
+      updateFullscreenButton();
+    }}
+
+    function toggleFullscreen() {{
+      if (!isFullscreenActive()) {{
+        enterFullscreenLandscape();
+      }} else {{
+        exitFullscreen();
+      }}
+    }}
+
+    function updateFullscreenButton() {{
+      const btnFs = document.getElementById('btnFullscreen');
+      if (btnFs) {{
+        btnFs.textContent = isFullscreenActive() ? '⛶ Exit Fullscreen' : '⛶ Fullscreen';
+      }}
+    }}
+
+    document.addEventListener('fullscreenchange', () => {{
+      updateFullscreenButton();
+      if (!isFullscreenActive()) {{
+        unlockOrientation();
+      }}
+      setTimeout(resizeCanvas, 150);
+    }});
+    document.addEventListener('webkitfullscreenchange', () => {{
+      updateFullscreenButton();
+      if (!isFullscreenActive()) {{
+        unlockOrientation();
+      }}
+      setTimeout(resizeCanvas, 150);
+    }});
+
+    // Arm one-time gesture trigger if browser blocked passive orientation fullscreen
+    function armAutoFullscreenOnGesture() {{
+      if (isFullscreenActive() || autoFullscreenArmed) return;
+      autoFullscreenArmed = true;
+
+      const trigger = () => {{
+        if ((window.innerWidth > window.innerHeight) && !isFullscreenActive()) {{
+          enterFullscreenLandscape();
+        }}
+        window.removeEventListener('pointerdown', trigger);
+        window.removeEventListener('touchstart', trigger);
+        window.removeEventListener('click', trigger);
+        autoFullscreenArmed = false;
+      }};
+
+      window.addEventListener('pointerdown', trigger, {{ once: true, passive: true }});
+      window.addEventListener('touchstart', trigger, {{ once: true, passive: true }});
+      window.addEventListener('click', trigger, {{ once: true, passive: true }});
+    }}
 
     function checkOrientation() {{
       const isPortrait = window.innerHeight > window.innerWidth;
@@ -502,18 +655,53 @@ html_template = f'''<!DOCTYPE html>
         orientationOverlay.classList.remove('hidden');
       }} else {{
         orientationOverlay.classList.add('hidden');
+        if (!isPortrait && isMobile && !isFullscreenActive()) {{
+          // Automatically switch to fullscreen in landscape
+          enterFullscreenLandscape();
+          armAutoFullscreenOnGesture();
+        }}
       }}
     }}
+
+    function handleOrientationChange() {{
+      setTimeout(() => {{
+        const isLandscape = window.innerWidth > window.innerHeight;
+        if (isLandscape && isMobile && !isFullscreenActive()) {{
+          enterFullscreenLandscape();
+          armAutoFullscreenOnGesture();
+        }}
+        resizeCanvas();
+      }}, 200);
+    }}
+
+    // Landscape rotation modal button (user tap gives guaranteed gesture permissions)
+    document.getElementById('btnRotateLandscape').addEventListener('click', (e) => {{
+      e.stopPropagation();
+      userDismissedPortrait = true;
+      orientationOverlay.classList.add('hidden');
+      enterFullscreenLandscape();
+    }});
 
     document.getElementById('btnContinuePortrait').addEventListener('click', () => {{
       userDismissedPortrait = true;
       orientationOverlay.classList.add('hidden');
     }});
 
+    // Listen for orientation change on all platforms
+    if (screen.orientation) {{
+      screen.orientation.addEventListener('change', handleOrientationChange);
+    }}
+    window.addEventListener('orientationchange', handleOrientationChange);
+    if (window.matchMedia) {{
+      const mql = window.matchMedia('(orientation: landscape)');
+      if (mql.addEventListener) {{
+        mql.addEventListener('change', handleOrientationChange);
+      }} else if (mql.addListener) {{
+        mql.addListener(handleOrientationChange);
+      }}
+    }}
+
     window.addEventListener('resize', resizeCanvas);
-    window.addEventListener('orientationchange', () => {{
-      setTimeout(resizeCanvas, 200);
-    }});
 
     // Initialize Targets and Scale
     function initVisualizer() {{
@@ -806,6 +994,11 @@ html_template = f'''<!DOCTYPE html>
       paused = !paused;
       triggerTapFeedback(paused ? '⏸' : '▶');
       updatePauseButton();
+
+      // On mobile in landscape, auto promote to fullscreen on interaction
+      if (isMobile && (window.innerWidth > window.innerHeight) && !isFullscreenActive()) {{
+        enterFullscreenLandscape();
+      }}
     }});
 
     // Sidebar View Controls Handling
@@ -866,11 +1059,7 @@ html_template = f'''<!DOCTYPE html>
 
     document.getElementById('btnFullscreen').addEventListener('click', (e) => {{
       e.stopPropagation();
-      if (!document.fullscreenElement) {{
-        document.documentElement.requestFullscreen().catch(() => {{}});
-      }} else {{
-        document.exitFullscreen().catch(() => {{}});
-      }}
+      toggleFullscreen();
     }});
 
     // Desktop Keyboard shortcuts
