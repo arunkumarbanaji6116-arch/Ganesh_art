@@ -445,7 +445,7 @@ html_template = f'''<!DOCTYPE html>
   </div>
 
   <!-- SIDEBAR VIEW CONTROLS (VERTICAL DOCK) -->
-  <div id="sidebarContainer">
+  <div id="sidebarContainer" class="collapsed">
     <div id="sidebarTab" title="Toggle Sidebar">
       <span class="tab-arrow">❯</span>
     </div>
@@ -533,11 +533,35 @@ html_template = f'''<!DOCTYPE html>
     }}
 
     // =========================================
-    // FULLSCREEN & AUTO-ROTATE CONTROLS
+    // FULLSCREEN, AUTO-ROTATE & SIDEBAR AUTO-HIDE
     // =========================================
     const orientationOverlay = document.getElementById('orientationOverlay');
+    const sidebarContainer = document.getElementById('sidebarContainer');
     let userDismissedPortrait = false;
     let autoFullscreenArmed = false;
+    let sidebarTimer = null;
+
+    function hideSidebar() {{
+      if (sidebarContainer) {{
+        sidebarContainer.classList.add('collapsed');
+      }}
+    }}
+
+    function showSidebar() {{
+      if (sidebarContainer) {{
+        sidebarContainer.classList.remove('collapsed');
+        scheduleSidebarAutoHide(3500);
+      }}
+    }}
+
+    function scheduleSidebarAutoHide(delay = 3000) {{
+      clearTimeout(sidebarTimer);
+      sidebarTimer = setTimeout(() => {{
+        if ((window.innerWidth > window.innerHeight) || isMobile) {{
+          hideSidebar();
+        }}
+      }}, delay);
+    }}
 
     function isFullscreenActive() {{
       return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
@@ -570,6 +594,7 @@ html_template = f'''<!DOCTYPE html>
     }}
 
     function enterFullscreenLandscape() {{
+      hideSidebar();
       const el = document.documentElement;
       const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
       if (rfs && !isFullscreenActive()) {{
@@ -578,15 +603,19 @@ html_template = f'''<!DOCTYPE html>
           promise.then(() => {{
             lockLandscape();
             updateFullscreenButton();
+            hideSidebar();
           }}).catch(() => {{
             lockLandscape();
+            hideSidebar();
           }});
         }} else {{
           lockLandscape();
           updateFullscreenButton();
+          hideSidebar();
         }}
       }} else {{
         lockLandscape();
+        hideSidebar();
       }}
     }}
 
@@ -655,10 +684,13 @@ html_template = f'''<!DOCTYPE html>
         orientationOverlay.classList.remove('hidden');
       }} else {{
         orientationOverlay.classList.add('hidden');
-        if (!isPortrait && isMobile && !isFullscreenActive()) {{
-          // Automatically switch to fullscreen in landscape
-          enterFullscreenLandscape();
-          armAutoFullscreenOnGesture();
+        if (!isPortrait) {{
+          // Auto-hide the sidebar after rotating to landscape
+          hideSidebar();
+          if (isMobile && !isFullscreenActive()) {{
+            enterFullscreenLandscape();
+            armAutoFullscreenOnGesture();
+          }}
         }}
       }}
     }}
@@ -666,9 +698,13 @@ html_template = f'''<!DOCTYPE html>
     function handleOrientationChange() {{
       setTimeout(() => {{
         const isLandscape = window.innerWidth > window.innerHeight;
-        if (isLandscape && isMobile && !isFullscreenActive()) {{
-          enterFullscreenLandscape();
-          armAutoFullscreenOnGesture();
+        if (isLandscape) {{
+          // Auto-hide the sidebar after rotating to landscape
+          hideSidebar();
+          if (isMobile && !isFullscreenActive()) {{
+            enterFullscreenLandscape();
+            armAutoFullscreenOnGesture();
+          }}
         }}
         resizeCanvas();
       }}, 200);
@@ -679,6 +715,7 @@ html_template = f'''<!DOCTYPE html>
       e.stopPropagation();
       userDismissedPortrait = true;
       orientationOverlay.classList.add('hidden');
+      hideSidebar();
       enterFullscreenLandscape();
     }});
 
@@ -995,6 +1032,9 @@ html_template = f'''<!DOCTYPE html>
       triggerTapFeedback(paused ? '⏸' : '▶');
       updatePauseButton();
 
+      // Tap on canvas hides the sidebar
+      hideSidebar();
+
       // On mobile in landscape, auto promote to fullscreen on interaction
       if (isMobile && (window.innerWidth > window.innerHeight) && !isFullscreenActive()) {{
         enterFullscreenLandscape();
@@ -1005,39 +1045,45 @@ html_template = f'''<!DOCTYPE html>
     const lblSpeed = document.getElementById('lblSpeed');
     lblSpeed.textContent = `Speed: ${{speedMultiplier.toFixed(1)}}x`;
     const btnPauseResume = document.getElementById('btnPauseResume');
-    const sidebarContainer = document.getElementById('sidebarContainer');
     const sidebarTab = document.getElementById('sidebarTab');
 
     function updatePauseButton() {{
       btnPauseResume.textContent = paused ? '▶ Play' : '⏸ Pause';
     }}
 
-    // Toggle Sidebar collapse / expand
+    // Toggle Sidebar collapse / expand with auto-hide timer
     sidebarTab.addEventListener('click', (e) => {{
       e.stopPropagation();
       sidebarContainer.classList.toggle('collapsed');
+      if (!sidebarContainer.classList.contains('collapsed')) {{
+        scheduleSidebarAutoHide(4000);
+      }}
     }});
 
     document.getElementById('btnSpeedUp').addEventListener('click', (e) => {{
       e.stopPropagation();
       speedMultiplier = Math.min(5.0, Math.round((speedMultiplier + 0.2) * 10) / 10);
       lblSpeed.textContent = `Speed: ${{speedMultiplier.toFixed(1)}}x`;
+      scheduleSidebarAutoHide(3000);
     }});
 
     document.getElementById('btnSpeedDown').addEventListener('click', (e) => {{
       e.stopPropagation();
       speedMultiplier = Math.max(0.2, Math.round((speedMultiplier - 0.2) * 10) / 10);
       lblSpeed.textContent = `Speed: ${{speedMultiplier.toFixed(1)}}x`;
+      scheduleSidebarAutoHide(3000);
     }});
 
     btnPauseResume.addEventListener('click', (e) => {{
       e.stopPropagation();
       paused = !paused;
       updatePauseButton();
+      scheduleSidebarAutoHide(3000);
     }});
 
     document.getElementById('btnSkip').addEventListener('click', (e) => {{
       e.stopPropagation();
+      scheduleSidebarAutoHide(3000);
       if (phase === 1) {{
         outlineTargets = [];
         activeParticles = [];
@@ -1055,6 +1101,7 @@ html_template = f'''<!DOCTYPE html>
       initVisualizer();
       paused = false;
       updatePauseButton();
+      scheduleSidebarAutoHide(3000);
     }});
 
     document.getElementById('btnFullscreen').addEventListener('click', (e) => {{
