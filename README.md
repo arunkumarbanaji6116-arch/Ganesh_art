@@ -3,7 +3,7 @@
 An animated sacred particle reveal visualizer of Lord Ganesha, featuring glowing diya flames, falling flower petals, and divine particle cascades. Built by **Arun**.
 
 Available in two versions:
-1. **HTML5 Responsive Canvas Web App** (`index.html`) — Works seamlessly on mobile phones and desktop browsers with interactive touch controls, portrait-to-landscape rotation guidance, and 1.0X default serene pacing.
+1. **HTML5 Responsive Canvas Web App** (`index.html`) — Works seamlessly on mobile phones and desktop browsers with interactive touch controls, portrait-to-landscape rotation guidance, and auto-adapted serene pacing (0.6x default on mobile, 1.0x on desktop).
 2. **Desktop Python Visualizer** (`ganesh_visualizer.py`) — Real-time Pygame-based particle physics engine.
 
 ---
@@ -14,7 +14,7 @@ Available in two versions:
 - **Glowing Sacred Diya Lamps:** Radiant animated flame glows with flickering sacred aura.
 - **Divine Flower Petals & Stardust:** Gentle petals and golden stars floating down the screen.
 - **Mobile Responsive Design:** Auto-scales to any phone screen with smooth full-screen landscape viewing.
-- **Interactive Sidebar Dock:** Speed adjustment (0.25x – 5.0x, default 1.0x), pause/play, skip phase, restart, and fullscreen toggle.
+- **Interactive Sidebar Dock:** Speed adjustment (0.2x – 5.0x, default 0.6x on mobile / 1.0x on desktop), pause/play, skip phase, restart, and fullscreen toggle.
 - **Tap Controls:** Tap anywhere on screen to pause or resume animation.
 
 ---

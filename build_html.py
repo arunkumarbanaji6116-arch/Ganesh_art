@@ -437,8 +437,13 @@ html_template = f'''<!DOCTYPE html>
     let screenW = window.innerWidth;
     let screenH = window.innerHeight;
 
-    // Simulation state (Default 1.0x)
-    let speedMultiplier = 1.0;
+    // Check if viewing on mobile device (touch screen, mobile user agent, or screen dimensions)
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                     (navigator.maxTouchPoints > 0 && (window.innerWidth <= 1024 || window.innerHeight <= 1024)) ||
+                     (window.matchMedia && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 900px)').matches));
+
+    // Simulation state (Default 0.6x for mobile, 1.0x for desktop)
+    let speedMultiplier = isMobile ? 0.6 : 1.0;
     let paused = false;
     let phase = 1; // 1: outlines, 2: tiles, 3: glow & petals
 
@@ -805,6 +810,7 @@ html_template = f'''<!DOCTYPE html>
 
     // Sidebar View Controls Handling
     const lblSpeed = document.getElementById('lblSpeed');
+    lblSpeed.textContent = `Speed: ${{speedMultiplier.toFixed(1)}}x`;
     const btnPauseResume = document.getElementById('btnPauseResume');
     const sidebarContainer = document.getElementById('sidebarContainer');
     const sidebarTab = document.getElementById('sidebarTab');
@@ -821,13 +827,13 @@ html_template = f'''<!DOCTYPE html>
 
     document.getElementById('btnSpeedUp').addEventListener('click', (e) => {{
       e.stopPropagation();
-      speedMultiplier = Math.min(5.0, Math.round((speedMultiplier + 0.25) * 100) / 100);
+      speedMultiplier = Math.min(5.0, Math.round((speedMultiplier + 0.2) * 10) / 10);
       lblSpeed.textContent = `Speed: ${{speedMultiplier.toFixed(1)}}x`;
     }});
 
     document.getElementById('btnSpeedDown').addEventListener('click', (e) => {{
       e.stopPropagation();
-      speedMultiplier = Math.max(0.25, Math.round((speedMultiplier - 0.25) * 100) / 100);
+      speedMultiplier = Math.max(0.2, Math.round((speedMultiplier - 0.2) * 10) / 10);
       lblSpeed.textContent = `Speed: ${{speedMultiplier.toFixed(1)}}x`;
     }});
 
@@ -873,10 +879,10 @@ html_template = f'''<!DOCTYPE html>
         paused = !paused;
         updatePauseButton();
       }} else if (e.key === 'ArrowUp' || e.key === '+') {{
-        speedMultiplier = Math.min(5.0, Math.round((speedMultiplier + 0.25) * 100) / 100);
+        speedMultiplier = Math.min(5.0, Math.round((speedMultiplier + 0.2) * 10) / 10);
         lblSpeed.textContent = `Speed: ${{speedMultiplier.toFixed(1)}}x`;
       }} else if (e.key === 'ArrowDown' || e.key === '-') {{
-        speedMultiplier = Math.max(0.25, Math.round((speedMultiplier - 0.25) * 100) / 100);
+        speedMultiplier = Math.max(0.2, Math.round((speedMultiplier - 0.2) * 10) / 10);
         lblSpeed.textContent = `Speed: ${{speedMultiplier.toFixed(1)}}x`;
       }} else if (e.key === 'f' || e.key === 'F') {{
         document.getElementById('btnSkip').click();
